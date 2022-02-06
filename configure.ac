@@ -36,7 +36,6 @@ AC_CHECK_DECLS([be32dec, le32dec, be32enc, le32enc], [], [],
 ])
 
 AC_FUNC_ALLOCA
-AC_CHECK_FUNCS([getopt_long])
 
 case $target in
   i*86-*-*)
@@ -54,13 +53,11 @@ case $target in
 esac
 
 PTHREAD_FLAGS="-pthread"
-WS2_LIBS=""
 
 case $target in
   *-*-mingw*)
     have_win32=true
     PTHREAD_FLAGS=""
-    WS2_LIBS="-lws2_32"
     ;;
 esac
 
@@ -98,14 +95,12 @@ then
   )
 fi
 
-AC_CHECK_LIB(jansson, json_loads, request_jansson=false, request_jansson=true)
 AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS="-lpthread",
   AC_CHECK_LIB([pthreadGC2], [pthread_create], PTHREAD_LIBS="-lpthreadGC2",
     AC_CHECK_LIB([pthreadGC1], [pthread_create], PTHREAD_LIBS="-lpthreadGC1",
       AC_CHECK_LIB([pthreadGC], [pthread_create], PTHREAD_LIBS="-lpthreadGC"
 ))))
 
-AM_CONDITIONAL([WANT_JANSSON], [test x$request_jansson = xtrue])
 AM_CONDITIONAL([HAVE_WINDOWS], [test x$have_win32 = xtrue])
 AM_CONDITIONAL([USE_ASM], [test x$enable_assembly != xno])
 AM_CONDITIONAL([ARCH_x86], [test x$have_x86 = xtrue])
@@ -113,24 +108,10 @@ AM_CONDITIONAL([ARCH_x86_64], [test x$have_x86_64 = xtrue])
 AM_CONDITIONAL([ARCH_ARM], [test x$have_arm = xtrue])
 AM_CONDITIONAL([ARCH_PPC], [test x$have_ppc = xtrue])
 
-if test x$request_jansson = xtrue
-then
-	JANSSON_LIBS="compat/jansson/libjansson.a"
-else
-	JANSSON_LIBS=-ljansson
-fi
-
-LIBCURL_CHECK_CONFIG(, 7.15.2, ,
-  [AC_MSG_ERROR([Missing required libcurl >= 7.15.2])])
-
-AC_SUBST(JANSSON_LIBS)
 AC_SUBST(PTHREAD_FLAGS)
 AC_SUBST(PTHREAD_LIBS)
-AC_SUBST(WS2_LIBS)
 
 AC_CONFIG_FILES([
 	Makefile
-	compat/Makefile
-	compat/jansson/Makefile
 	])
 AC_OUTPUT
