@@ -86,7 +86,7 @@ static inline void affine_to_cpu(int id, int cpu)
 }
 #endif
 
-const uint32_t nonces = 30000000;
+const uint32_t nonces = 16000000;
 uint32_t blkheader[19];
 uint32_t target[8] = {0};
 
@@ -169,11 +169,12 @@ static void *miner_thread(void *userdata)
 				hashrate += thr_hashrates[i];
 			if (i == opt_n_threads) {
 				sprintf(s, hashrate >= 1e9 ? "%.0f" : "%.2f", 1e-6 * hashrate);
-				applog(LOG_INFO, "Hashrate: %s MH/s", s);
+				fprintf(stderr, "   Hashrate: %s MH/s     \r", s);
 			}
 		}
 	}
 
+	applog(LOG_INFO, "Refreshing work");
 	exit(0);
 
 	return NULL;
@@ -247,19 +248,17 @@ static void signal_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	show_version();
+	if (argc > 2 && !strcmp(argv[2], "info")) {
+		show_version();
+	}
 
-	if (argc < 1) {
+	if (argc < 2) {
 		fprintf(stderr, "no blockheader argument\n");
 		return 1;
 	}
 
-	if (strlen(argv[1]) != (80 - 4) * 2) {
-		if (strlen(argv[1]) == 80 * 2) {
-			fprintf(stderr, "invalid length (don't include nonce)\n");
-		} else {
-			fprintf(stderr, "invalid length\n");
-		}
+	if (strlen(argv[1]) != (80 - 4) * 2 && strlen(argv[1]) != 80 * 2) {
+		fprintf(stderr, "invalid length\n");
 		return 1;
 	}
 
