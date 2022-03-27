@@ -174,7 +174,7 @@ static void *miner_thread(void *userdata)
 		}
 	}
 
-	applog(LOG_INFO, "Refreshing work");
+	applog(LOG_INFO, "Refreshing work                ");
 	exit(0);
 
 	return NULL;
