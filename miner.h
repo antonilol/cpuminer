@@ -142,28 +142,9 @@ void sha256_transform_8way(uint32_t *state, const uint32_t *block, int swap);
 extern int scanhash_sha256d(int thr_id, uint32_t *pdata,
 	const uint32_t *ptarget, uint32_t max_nonce, unsigned long *hashes_done);
 
-struct thr_info {
-	int		id;
-	pthread_t	pth;
-};
-
-extern pthread_mutex_t applog_lock;
-extern struct thr_info *thr_info;
-
-extern void applog(int prio, const char *fmt, ...);
-void memrev(unsigned char *p, size_t len);
 extern void bin2hex(char *s, const unsigned char *p, size_t len);
-extern char *abin2hex(const unsigned char *p, size_t len);
-extern bool hex2bin(unsigned char *p, const char *hexstr, size_t len);
-extern int varint_encode(unsigned char *p, uint64_t n);
-extern size_t address_to_script(unsigned char *out, size_t outsz, const char *addr);
 extern int timeval_subtract(struct timeval *result, struct timeval *x,
 	struct timeval *y);
 extern bool fulltest(const uint32_t *hash, const uint32_t *target);
-extern void diff_to_target(uint32_t *target, double diff);
-
-struct thread_q;
-
-extern struct thread_q *tq_new(void);
 
 #endif /* __MINER_H__ */

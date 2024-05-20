@@ -16,15 +16,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #ifdef WIN32
 #include <windows.h>
 #else
-#include <errno.h>
-#include <signal.h>
 #include <sys/resource.h>
 #if HAVE_SYS_SYSCTL_H
 #include <sys/types.h>
@@ -42,8 +39,7 @@
 
 #ifdef __linux /* Linux specific policy and affinity management */
 #include <sched.h>
-static inline void drop_policy(void)
-{
+static inline void drop_policy(void) {
 	struct sched_param param;
 	param.sched_priority = 0;
 
@@ -55,8 +51,7 @@ static inline void drop_policy(void)
 #endif
 }
 
-static inline void affine_to_cpu(int id, int cpu)
-{
+static inline void affine_to_cpu(int id, int cpu) {
 	cpu_set_t set;
 
 	CPU_ZERO(&set);
@@ -65,43 +60,31 @@ static inline void affine_to_cpu(int id, int cpu)
 }
 #elif defined(__FreeBSD__) /* FreeBSD specific policy and affinity management */
 #include <sys/cpuset.h>
-static inline void drop_policy(void)
-{
-}
+static inline void drop_policy(void) {}
 
-static inline void affine_to_cpu(int id, int cpu)
-{
+static inline void affine_to_cpu(int id, int cpu) {
 	cpuset_t set;
 	CPU_ZERO(&set);
 	CPU_SET(cpu, &set);
 	cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, sizeof(cpuset_t), &set);
 }
 #else
-static inline void drop_policy(void)
-{
-}
+static inline void drop_policy(void) {}
 
-static inline void affine_to_cpu(int id, int cpu)
-{
-}
+static inline void affine_to_cpu(int id, int cpu) {}
 #endif
 
-const uint32_t nonces = 16000000;
-uint32_t blkheader[19];
-uint32_t target[8] = {0};
+static const uint32_t nonces = 16000000;
+static uint32_t blkheader[19];
+static uint32_t target[8] = {0};
 
-struct thr_info *thr_info;
 static int num_processors;
 
-pthread_mutex_t applog_lock;
 static pthread_mutex_t stats_lock;
-
 static double *thr_hashrates;
 
-static void *miner_thread(void *userdata)
-{
-	struct thr_info *mythr = userdata;
-	int thr_id = mythr->id;
+static void *miner_thread(void *userdata) {
+	int thr_id = *(int *)userdata;
 	uint32_t work[32] = {0};
 
 	for (int i = 0; i < 19; i++) {
@@ -177,14 +160,13 @@ static void *miner_thread(void *userdata)
 		}
 	}
 
-	applog(LOG_INFO, "Refreshing work                ");
+	fprintf(stderr, "Refreshing work                \n");
 	exit(0);
 
 	return NULL;
 }
 
-static void show_version(void)
-{
+static void show_version(void) {
 	fprintf(stderr, PACKAGE_STRING "\n built on " __DATE__ "\n features:"
 #if defined(USE_ASM) && defined(__i386__)
 		" i386"
@@ -230,27 +212,7 @@ static void show_version(void)
 		"\n");
 }
 
-#ifndef WIN32
-static void signal_handler(int sig)
-{
-	switch (sig) {
-	case SIGHUP:
-		applog(LOG_INFO, "SIGHUP received");
-		break;
-	case SIGINT:
-		applog(LOG_INFO, "SIGINT received, exiting");
-		exit(0);
-		break;
-	case SIGTERM:
-		applog(LOG_INFO, "SIGTERM received, exiting");
-		exit(0);
-		break;
-	}
-}
-#endif
-
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	if (argc > 2 && !strcmp(argv[2], "info")) {
 		show_version();
 	}
@@ -290,10 +252,8 @@ int main(int argc, char *argv[])
 
 	memcpy((unsigned char *) target + nSize - 3, &nWord, 3);
 
-	struct thr_info *thr;
 	int i;
 
-	pthread_mutex_init(&applog_lock, NULL);
 	pthread_mutex_init(&stats_lock, NULL);
 
 #if defined(WIN32)
@@ -309,35 +269,40 @@ int main(int argc, char *argv[])
 #else
 	num_processors = 1;
 #endif
-	if (num_processors < 1)
+	if (num_processors < 1) {
 		num_processors = 1;
+	}
 
-	thr_info = calloc(num_processors, sizeof(*thr));
-	if (!thr_info)
-		return 1;
-	
+	int *thr_ids = malloc(num_processors * sizeof(int));
+	pthread_t *thr_handles = malloc(num_processors * sizeof(pthread_t));
 	thr_hashrates = calloc(num_processors, sizeof(double));
-	if (!thr_hashrates)
+
+	if (!thr_ids || !thr_handles || !thr_hashrates) {
 		return 1;
+	}
 
 	/* start mining threads */
 	for (i = 0; i < num_processors; i++) {
-		thr = &thr_info[i];
+		int *userdata = &thr_ids[i];
 
-		thr->id = i;
+		*userdata = i;
 
-		if (unlikely(pthread_create(&thr->pth, NULL, miner_thread, thr))) {
-			applog(LOG_ERR, "thread %d create failed", i);
+		if (unlikely(pthread_create(&thr_handles[i], NULL, miner_thread, userdata))) {
+			fprintf(stderr, "creating thread %d failed\n", i);
 			return 1;
 		}
 	}
 
-	applog(LOG_INFO, "%d miner threads started", num_processors);
+	fprintf(stderr, "%d miner threads started\n", num_processors);
 
 	/* main loop - simply wait for miner threads to exit */
 	for (i = 0; i < num_processors; i++) {
-		pthread_join(thr_info[i].pth, NULL);
+		pthread_join(thr_handles[i], NULL);
 	}
+
+	free(thr_ids);
+	free(thr_handles);
+	free(thr_hashrates);
 
 	return 0;
 }
