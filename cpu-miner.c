@@ -92,7 +92,6 @@ uint32_t target[8] = {0};
 
 struct thr_info *thr_info;
 static int num_processors;
-static int opt_n_threads;
 
 pthread_mutex_t applog_lock;
 static pthread_mutex_t stats_lock;
@@ -108,11 +107,11 @@ static void *miner_thread(void *userdata)
 	for (int i = 0; i < 19; i++) {
 		work[i] = blkheader[i];
 	}
-	work[19] = 0xffffffffU / opt_n_threads * thr_id;
+	work[19] = 0xffffffffU / num_processors * thr_id;
 	work[20] = 0x80000000;
 	work[31] = 640;
 
-	uint32_t end_nonce = 0xffffffffU / opt_n_threads * (thr_id + 1);
+	uint32_t end_nonce = 0xffffffffU / num_processors * (thr_id + 1);
 	char s[16];
 	int i;
 
@@ -124,8 +123,8 @@ static void *miner_thread(void *userdata)
 
 	/* Cpu affinity only makes sense if the number of threads is a multiple
 	 * of the number of CPUs */
-	if (num_processors > 1 && opt_n_threads % num_processors == 0) {
-		affine_to_cpu(thr_id, thr_id % num_processors);
+	if (num_processors > 1) {
+		affine_to_cpu(thr_id, thr_id);
 	}
 
 	while (work[19] < end_nonce) {
@@ -163,11 +162,11 @@ static void *miner_thread(void *userdata)
 				hashes_done / (diff.tv_sec + 1e-6 * diff.tv_usec);
 			pthread_mutex_unlock(&stats_lock);
 		}
-		if (thr_id == opt_n_threads - 1) {
+		if (thr_id == num_processors - 1) {
 			double hashrate = 0.;
-			for (i = 0; i < opt_n_threads && thr_hashrates[i]; i++)
+			for (i = 0; i < num_processors && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
-			if (i == opt_n_threads) {
+			if (i == num_processors) {
 				sprintf(s, hashrate >= 1e9 ? "%.0f" : "%.2f", 1e-6 * hashrate);
 				fprintf(stderr, "   Hashrate: %s MH/s     \r", s);
 			}
@@ -307,19 +306,17 @@ int main(int argc, char *argv[])
 #endif
 	if (num_processors < 1)
 		num_processors = 1;
-	if (!opt_n_threads)
-		opt_n_threads = num_processors;
 
-	thr_info = calloc(opt_n_threads + 3, sizeof(*thr));
+	thr_info = calloc(num_processors + 3, sizeof(*thr));
 	if (!thr_info)
 		return 1;
 	
-	thr_hashrates = (double *) calloc(opt_n_threads, sizeof(double));
+	thr_hashrates = (double *) calloc(num_processors, sizeof(double));
 	if (!thr_hashrates)
 		return 1;
 
 	/* start mining threads */
-	for (i = 0; i < opt_n_threads; i++) {
+	for (i = 0; i < num_processors; i++) {
 		thr = &thr_info[i];
 
 		thr->id = i;
@@ -333,10 +330,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	applog(LOG_INFO, "%d miner threads started", opt_n_threads);
+	applog(LOG_INFO, "%d miner threads started", num_processors);
 
 	/* main loop - simply wait for miner threads to exit */
-	for (i = 0; i < opt_n_threads; i++) {
+	for (i = 0; i < num_processors; i++) {
 		pthread_join(thr_info[i].pth, NULL);
 	}
 
