@@ -1,7 +1,7 @@
 /*
  * Copyright 2010 Jeff Garzik
  * Copyright 2012-2017 pooler
- * Copyright 2022 antonilol
+ * Copyright 2022-2024 antonilol
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -296,8 +296,8 @@ int main(int argc, char *argv[])
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo(&sysinfo);
 	num_processors = sysinfo.dwNumberOfProcessors;
-#elif defined(_SC_NPROCESSORS_CONF)
-	num_processors = sysconf(_SC_NPROCESSORS_CONF);
+#elif defined(_SC_NPROCESSORS_ONLN)
+	num_processors = sysconf(_SC_NPROCESSORS_ONLN);
 #elif defined(CTL_HW) && defined(HW_NCPU)
 	int req[] = { CTL_HW, HW_NCPU };
 	size_t len = sizeof(num_processors);
