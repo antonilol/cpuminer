@@ -2,9 +2,7 @@ EXTRA_DIST		= nomacro.pl
 
 bin_PROGRAMS	= minerd
 
-#dist_man_MANS	= minerd.1
-
-minerd_SOURCES	= elist.h miner.h compat.h cpu-miner.c util.c sha2.c
+minerd_SOURCES	= miner.h compat.h cpu-miner.c util.c sha2.c
 
 if USE_ASM
 if ARCH_x86
