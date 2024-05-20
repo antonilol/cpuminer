@@ -112,7 +112,6 @@ static void *miner_thread(void *userdata)
 	work[31] = 640;
 
 	uint32_t end_nonce = 0xffffffffU / num_processors * (thr_id + 1);
-	char s[16];
 	int i;
 
 	/* Set worker threads to nice 19 and then preferentially to SCHED_IDLE
@@ -148,7 +147,7 @@ static void *miner_thread(void *userdata)
 			char header_hex[161];
 			bin2hex(header_hex, (unsigned char *) h, 80);
 			header_hex[160]='\0';
-			printf(header_hex);
+			printf("%s", header_hex);
 
 			exit(0);
 		}
@@ -164,11 +163,16 @@ static void *miner_thread(void *userdata)
 		}
 		if (thr_id == num_processors - 1) {
 			double hashrate = 0.;
+			pthread_mutex_lock(&stats_lock);
 			for (i = 0; i < num_processors && thr_hashrates[i]; i++)
 				hashrate += thr_hashrates[i];
+			pthread_mutex_unlock(&stats_lock);
 			if (i == num_processors) {
-				sprintf(s, hashrate >= 1e9 ? "%.0f" : "%.2f", 1e-6 * hashrate);
-				fprintf(stderr, "   Hashrate: %s MH/s     \r", s);
+				if (hashrate >= 1e9) {
+					fprintf(stderr, "   Hashrate: %.0f MH/s     \r", 1e-6 * hashrate);
+				} else {
+					fprintf(stderr, "   Hashrate: %.2f MH/s     \r", 1e-6 * hashrate);
+				}
 			}
 		}
 	}
@@ -256,7 +260,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (strlen(argv[1]) != (80 - 4) * 2 && strlen(argv[1]) != 80 * 2) {
+	size_t len = strlen(argv[1]);
+	if (len != (80 - 4) * 2 && len != 80 * 2) {
 		fprintf(stderr, "invalid length\n");
 		return 1;
 	}
@@ -307,11 +312,11 @@ int main(int argc, char *argv[])
 	if (num_processors < 1)
 		num_processors = 1;
 
-	thr_info = calloc(num_processors + 3, sizeof(*thr));
+	thr_info = calloc(num_processors, sizeof(*thr));
 	if (!thr_info)
 		return 1;
 	
-	thr_hashrates = (double *) calloc(num_processors, sizeof(double));
+	thr_hashrates = calloc(num_processors, sizeof(double));
 	if (!thr_hashrates)
 		return 1;
 
@@ -320,9 +325,6 @@ int main(int argc, char *argv[])
 		thr = &thr_info[i];
 
 		thr->id = i;
-		thr->q = tq_new();
-		if (!thr->q)
-			return 1;
 
 		if (unlikely(pthread_create(&thr->pth, NULL, miner_thread, thr))) {
 			applog(LOG_ERR, "thread %d create failed", i);

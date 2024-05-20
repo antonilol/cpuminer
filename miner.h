@@ -145,7 +145,6 @@ extern int scanhash_sha256d(int thr_id, uint32_t *pdata,
 struct thr_info {
 	int		id;
 	pthread_t	pth;
-	struct thread_q	*q;
 };
 
 extern pthread_mutex_t applog_lock;
